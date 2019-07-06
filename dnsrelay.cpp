@@ -30,8 +30,8 @@ int DNS_cache_init(char *tablePath)
 		if (pos > table[j].size())
 			cout << "The record is not in a correct format. " << endl;
 		else {
-			DNS_table[j].IP = table[j].substr(0, pos);
-			DNS_table[j].domain = table[j].substr(pos + 1);
+			DNS_cache[j].IP = table[j].substr(0, pos);
+			DNS_cache[j].domain = table[j].substr(pos + 1);
 		}
 	}
 	infile.close();		//关闭文件
@@ -78,7 +78,7 @@ int IsFind(char* url, int num)
 	char* domain;
 
 	for (int i = 0; i < num; i++) {
-		domain = (char *)DNS_table[i].domain.c_str();
+		domain = (char *)DNS_cache[i].domain.c_str();
 		if (strcmp(domain, url) == 0) {	//找到
 			find = i;
 			break;
@@ -172,7 +172,7 @@ void DisplayInfo(unsigned short newID, int find)
 
 	//在表中找到DNS请求中的域名
 	else {
-		if (DNS_table[find].IP == "0.0.0.0")  //不良网站拦截
+		if (DNS_cache[find].IP == "0.0.0.0")  //不良网站拦截
 		{
 			//屏蔽功能
 			cout.setf(ios::left);
@@ -199,7 +199,7 @@ void DisplayInfo(unsigned short newID, int find)
 			cout << "    ";
 			//打印IP
 			cout.setf(ios::left);
-			cout << setiosflags(ios::left) << setw(20) << setfill(' ') << DNS_table[find].IP << endl;
+			cout << setiosflags(ios::left) << setw(20) << setfill(' ') << DNS_cache[find].IP << endl;
 		}
 	}
 }
@@ -438,7 +438,7 @@ int main(int argc, char** argv)
 				memcpy(&sendbuf[2], &a, sizeof(unsigned short));		//修改标志域
 
 				//修改回答数域
-				if (strcmp(DNS_table[find].IP.c_str(), "0.0.0.0") == 0)
+				if (strcmp(DNS_cache[find].IP.c_str(), "0.0.0.0") == 0)
 					a = htons(0x0000);	//屏蔽功能：回答数为0
 				else
 					a = htons(0x0001);	//服务器功能：回答数为1
@@ -467,7 +467,7 @@ int main(int argc, char** argv)
 				memcpy(answer + curLen, &IPLen, sizeof(unsigned short));
 				curLen += sizeof(unsigned short);
 
-				unsigned long IP = (unsigned long)inet_addr(DNS_table[find].IP.c_str());
+				unsigned long IP = (unsigned long)inet_addr(DNS_cache[find].IP.c_str());
 				memcpy(answer + curLen, &IP, sizeof(unsigned long));
 				curLen += sizeof(unsigned long);
 				curLen += iRecv;

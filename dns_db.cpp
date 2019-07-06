@@ -1,9 +1,6 @@
 #include "dns_db.h"
 #include<iostream>
-dns_db::dns_db()
-{
-	init_db();
-}
+dns_db::dns_db(){}
 
 dns_db::~dns_db()
 {

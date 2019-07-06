@@ -28,7 +28,6 @@ private:
 	SQLSMALLINT  MsgLen;
 	SQLRETURN rc2;
 
-	
 
 };
 

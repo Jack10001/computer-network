@@ -9,7 +9,7 @@ typedef vector<string> StringList;
 typedef vector<SAnswer*> AnswerList;
 typedef unsigned short u_short;
 
-enum { CNAME };
+enum { CNAME,A };
 
 class dns_message
 {
@@ -40,7 +40,7 @@ public:
 	//dns请求 or 响应信息
 	string  QuestionDomain();//请求域名
 	StringList Get_CNAME_List();//CNAME数组
-	StringList GetIpList();//IP数组
+	StringList Get_Ip_List();//IP数组
 
 	//log
 	//void	PrintLog();

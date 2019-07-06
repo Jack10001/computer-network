@@ -123,6 +123,10 @@ typedef struct IDChange
 
 DNS_record DNS_cache[AMOUNT];		//DNS缓存数据结构
 IDTransform IDTransTable[AMOUNT];	//ID转换表
+
+// vector<DNS_record> DNS_cache;
+//vector<IDTransform> IDTranslate
+
 int IDcount = 0;					//转换表中的条目个数
 
 

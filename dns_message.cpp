@@ -101,7 +101,7 @@ void dns_message::GetDns_Response(const DNS_HDR *dns)
 		pAnswer->resource.len = ntohs(pResource->len);
 
 		//ipv4地址
-		if ('A'== pAnswer->resource.type)
+		if ( A == pAnswer->resource.type)
 		{
 			pAnswer->result = inet_ntoa(*(struct in_addr *)pDns);//将ip地址转换为字符串型
 			pDns += 4;
@@ -118,8 +118,7 @@ void dns_message::GetDns_Response(const DNS_HDR *dns)
 }
 
 
-//first:dns首地址
-//start:读取域名的首地址
+//获取请求报文中的域名
 string dns_message::GetDomain(const char *first, const char *start, int *pLen)
 {
 	char *p = (char *)start;
@@ -158,6 +157,8 @@ string dns_message::GetDomain(const char *first, const char *start, int *pLen)
 }
 
 
+
+
 StringList dns_message::Get_CNAME_List()
 {
 	StringList strList;
@@ -175,7 +176,7 @@ StringList dns_message::Get_CNAME_List()
 	return strList;
 }
 
-StringList dns_message::GetIpList()
+StringList dns_message::Get_Ip_List()
 {
 	StringList strList;
 
@@ -183,7 +184,7 @@ StringList dns_message::GetIpList()
 	for (AnswerList::iterator it = m_AnswerList.begin(); it != m_AnswerList.end(); ++it)
 	{
 		pAnswer = *it;
-		if ('A' == pAnswer->resource.type)
+		if (A == pAnswer->resource.type)
 		{
 			strList.push_back(pAnswer->result);
 		}
@@ -297,7 +298,7 @@ string dns_message::QuestionDomain()
 void dns_message::Clear()
 {
 	memset(&m_DnsHdr, 0, sizeof(DNS_HDR));
-
+	delete m_pDnsHdr;
 	for (AnswerList::iterator it = m_AnswerList.begin(); it != m_AnswerList.end(); ++it)
 	{
 		delete *it;
