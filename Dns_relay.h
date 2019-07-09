@@ -1,5 +1,7 @@
 #pragma once
 #pragma  comment(lib, "Ws2_32.lib") 
+
+#pragma once
 #include <stdio.h>
 #include <stdlib.h>
 #include <winsock2.h> 
@@ -8,40 +10,29 @@
 #include <string>
 #include<mutex>
 #include<thread>
-#include <iostream>
 #include <fstream>
 #include <iomanip>
 #include<vector>
 #include<string>
+#include<set>
+#include<map>
+#include<iostream>
+#include<algorithm>
 
 using namespace std;
 #pragma warning(disable : 4996)
 
-#define DEF_DNS_ADDRESS "10.3.9.4"	     //北邮DNS服务器地址
+#define DEF_DNS_ADDRESS "192.168.43.1"	     //北邮DNS服务器地址
 #define LOCAL_ADDRESS "127.0.0.1"		//本地DNS服务器地址
 #define DNS_PORT 53						//进行DNS服务的53端口
 #define BUF_SIZE 512
 #define LENGTH 65
 #define AMOUNT 1000
 #define NOTFOUND -1
-#define IP_LENGTH 16+1
-#define DOMIN_LENGTH 64+1
 
-#pragma pack(2)//2字节对齐
-#define DNS_FLAG_QR			0x8000	//查询(0) | 响应(1)
-#define DNS_FLAG_OPCODE		0x7000	//标准查询(0) | 反向查询(1) | 服务器状态请求(2) | 保留(3-15)
-#define DNS_FLAG_AA			0x0400	//权威回答(1) | 非权威回答(0), 响应中有效
-#define DNS_FLAG_TC			0x0200	//截断(1), 若该位为1, 将会使用TCP重新请求
-#define DNS_FLAG_RD			0x0100	//期望递归
-#define DNS_FLAG_RA			0x0080	//递归可用
-#define DNS_FLAG_Z			0x0070	//保留
-#define DNS_FLAG_RCODE		0x000f	//没有错误(0) | 格式错误(1) | 服务器故障(2) | 名称错误(3) | 未实现(4) | 拒绝(5) | 保留(6-15)
-
-
-
-//DNS报文首部
 
 /*
+HEADER--
 ID: 2 bytes
 FLAGS : 2 bytes
 QDCOUNT : 2 bytes
@@ -66,7 +57,6 @@ typedef struct _tagQuestion
 	unsigned short qclass;
 }Question;
 
-
 //用户使用的Question : QNAME,QTYPE,QCLASS
 //QNAME 就是所请求的域名
 typedef struct _tagSQuestion
@@ -75,11 +65,9 @@ typedef struct _tagSQuestion
 	Question	question;
 }SQuestion;
 
-
-
 //资源记录格式
 /*
-NAME 
+NAME
 TYPE
 CLASS
 TTL
@@ -98,19 +86,21 @@ typedef struct _tagResource
 typedef struct _tagSAnswer
 {
 	string		domain;
-	Resource	resource; 
+	Resource	resource;
 	string		result;//ip or 主机名
 }SAnswer;
 
 
 
+
+
+
 //dns缓存记录
-typedef struct DNS_record
+typedef struct DNS_Record
 {
 	string IP;						//IP地址
 	string domain;					//域名
-} DNS_record;
-
+}DNS_record;
 
 //ID转换表结构,下标做ID
 typedef struct IDChange
@@ -121,28 +111,22 @@ typedef struct IDChange
 } IDTransform;
 
 
-DNS_record DNS_cache[AMOUNT];		//DNS缓存数据结构
-IDTransform IDTransTable[AMOUNT];	//ID转换表
-
-// vector<DNS_record> DNS_cache;
-//vector<IDTransform> IDTranslate
-
-int IDcount = 0;					//转换表中的条目个数
-
-
-char url[LENGTH];					//域名
-
-
-SYSTEMTIME sys;                     //系统时间
-int Day, Hour, Minute, Second, Milliseconds;//保存系统时间的变量
-
-
-int DNS_cache_init(char* tablepath);
-
-void GetUrl(char *recvbuf, int recvnum);
-
-int IsFind(char* url, int num);
-
-unsigned short RegisterNewID(unsigned short oID, SOCKADDR_IN temp, BOOL ifdone);
-void showtime();
-void DisplayInfo(unsigned short newID, int find);
+class Dns_relay
+{
+public:
+	Dns_relay();
+	~Dns_relay();
+	int DNS_cache_init(const char* tablepath);
+	//void GetUrl(char *recvbuf, int recvnum);
+	//int IsFind(char* url, int num);
+	int IsFind(int num);
+	unsigned short RegisterNewID(unsigned short oID, SOCKADDR_IN temp, BOOL ifdone);
+	void showtime();
+	void DisplayInfo(unsigned short newID, int find);
+	void init_socket();
+	void init_CMD(int argc, char**argv);
+	void update_DNS_cache_db(char *recvbuf, int recv_num);
+	void update_dns_cache(vector<DNS_record>& records);
+	void to_BUPT_DNSServer(char * recvbuf, int iRecv, int find);
+	void relay_server(char*recvbuf, int iRecv, int find);
+};

@@ -1,8 +1,8 @@
-#include "dns_db.h"
-#include<iostream>
-dns_db::dns_db(){}
+ï»¿
+#include "DnsDb.h"
+DnsDb::DnsDb() {}
 
-dns_db::~dns_db()
+DnsDb::~DnsDb()
 {
 	SQLDisconnect(hdbc);
 	SQLFreeHandle(SQL_HANDLE_STMT, hstmt);
@@ -11,9 +11,9 @@ dns_db::~dns_db()
 }
 
 
-void dns_db::init_db(void)
+void DnsDb::init_db(void)
 {
-	//·ÖÅä»·¾³¾ä±ú
+
 	retcode = SQLAllocEnv(&henv);
 	retcode = SQLAllocHandle(SQL_HANDLE_ENV, NULL, &henv);
 	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {}
@@ -23,20 +23,18 @@ void dns_db::init_db(void)
 		system("pause");
 		exit(0);
 	}
-	//ÉèÖÃ»·¾³¾ä±úÊôÐÔ
+
 	SQLSetEnvAttr(henv, SQL_ATTR_ODBC_VERSION, (SQLPOINTER)SQL_OV_ODBC3, SQL_IS_INTEGER);
-	//·ÖÅäÒ»¸öÁ¬½Ó¾ä±ú
+
 	retcode = SQLAllocHandle(SQL_HANDLE_DBC, henv, &hdbc);
 	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
 	{
 
-		//Á¬½ÓÊý¾ÝÔ´
 		SQLSetConnectAttr(hdbc, SQL_LOGIN_TIMEOUT, (SQLPOINTER)5, 0);
 		retcode = SQLConnect(hdbc, (SQLCHAR*)"myodbc", SQL_NTS, (SQLCHAR*)NULL, SQL_NTS, (SQLCHAR*)NULL, SQL_NTS);
 		if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO)
 		{
-			//Á¬½ÓÍê±Ï
-			//·ÖÅäÓï¾ä¾ä±ú
+
 			retcode = SQLAllocHandle(SQL_HANDLE_STMT, hdbc, &hstmt);
 			if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {}
 			else
@@ -61,16 +59,16 @@ void dns_db::init_db(void)
 	}
 }
 
-DNS_record * dns_db::select_(char * domin)
+vector<DNS_record_> DnsDb::select_(const char * domain)
 {
-	SQLCHAR szSelect[] = "SELECT * FROM¡¡mydnsrelay WHERE dominName='%s'";
-	SQLCHAR ipAddr[IP_LENGTH], dominName[DOMIN_LENGTH];
-	char ip[IP_LENGTH], domin[DOMIN_LENGTH];
+	SQLCHAR szSelect[] = "SELECT * FROM mydnsrelay WHERE dominName='%s'";
+	SQLCHAR ipAddr[IPLENGTH], dominName[DOMIN_LENGTH];
+	char ip[IPLENGTH], domin_[DOMIN_LENGTH];
 
 	SQLINTEGER s_len, c_len;
 	SQLCHAR query[100];
 
-	sprintf((char *)query, (char *)szSelect, ipAddr);
+	sprintf((char *)query, (char *)szSelect, domain);
 	retcode = SQLExecDirect(hstmt, (SQLCHAR*)query, SQL_NTS);
 
 	if (retcode == SQL_SUCCESS || retcode == SQL_SUCCESS_WITH_INFO) {}
@@ -80,34 +78,33 @@ DNS_record * dns_db::select_(char * domin)
 		system("pause");
 		exit(0);
 	}
-	//»ñÈ¡½á¹û¼¯,ÓÃº¯ÊýSQLBindCol°ó¶¨ÁÐ£¬È»ºóÓÃº¯ÊýSQLFetch±éÀú¼ÇÂ¼
-	
-	 DNS_record dns_records[MAX_RECORD_NUM];
+
+	//DNS_record dns_records[MAX_RECORD_NUM];
+	vector<DNS_record_> dns_records;
 	//std::vector<DNS_record> dns_records;
-	retcode = SQLBindCol(hstmt, 1, SQL_C_CHAR, ipAddr, IP_LENGTH, &s_len);
+	retcode = SQLBindCol(hstmt, 1, SQL_C_CHAR, ipAddr, IPLENGTH, &s_len);
 	retcode = SQLBindCol(hstmt, 2, SQL_C_CHAR, dominName, DOMIN_LENGTH, &c_len);
 	printf("---------------------------------------------------\n");
-	printf(" count     class_id        course_id\n");
+	printf(" count     ip_addr      domain_name\n");
 	printf("---------------------------------------------------\n");
 	int i = 0;
 	while (SQLFetch(hstmt) != SQL_NO_DATA)
 	{
-		//¶ÔÊý¾Ý½øÐÐ´ò°ü·¢ËÍ
+
 		printf(" %d |     %s     |    %s\n", i, ipAddr, dominName);
 		memcpy(ip, (char*)ipAddr, sizeof((char*)ipAddr));
-		memcpy(domin, (char*)dominName, sizeof((char*)dominName));
+		memcpy(domin_, (char*)dominName, sizeof((char*)dominName));
 		dns_records[i].IP = ip;
-		dns_records[i].domain = domin;
+		dns_records[i].domain = domin_;
 		i++;
 	}
 
 	SQLCloseCursor(hstmt);
-	if (i == 0) return NULL;
-	else
-		return dns_records;
+	cout << "dns records result :"<<dns_records.size()<<endl;
+	return dns_records;
 }
 
-void dns_db::updata_record(char* ip_addr,char*domin_name)
+void DnsDb::update_record(const char* ip_addr, const char*domin_name)
 {
 	SQLCHAR szInsert[] = "INSERT INTO mydnsrelay(ipAddr,dominName) VALUES('%s','%s')";
 	SQLSMALLINT i;
@@ -115,7 +112,7 @@ void dns_db::updata_record(char* ip_addr,char*domin_name)
 
 	sprintf((char *)query, (char *)szInsert, ip_addr, domin_name);
 	retcode = SQLExecDirect(hstmt, (SQLCHAR*)query, SQL_NTS);
-	
+
 	if ((retcode == SQL_SUCCESS_WITH_INFO) || (retcode == SQL_ERROR))
 	{
 		i = 1;

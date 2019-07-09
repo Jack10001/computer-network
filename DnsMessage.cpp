@@ -1,12 +1,12 @@
-#include "dns_message.h"
+#include "DnsMessage.h"
 
-dns_message::dns_message(char *recvbuf, int recvlen)
+DnsMessage::DnsMessage(char *recvbuf, int recvlen)
 {
 	Clear();
 	m_strDnsBuf = string(recvbuf, recvlen);//将接受到的报文转化为string
 }
 
-dns_message::~dns_message()
+DnsMessage::~DnsMessage()
 {
 	Clear();
 }
@@ -15,7 +15,7 @@ dns_message::~dns_message()
 //成功：内存搜索、转发
 //失败：转发
 
-bool dns_message::StartAnalysis()
+bool DnsMessage::StartAnalysis()
 {
 	int dnsLen = m_strDnsBuf.size();
 	m_pDnsHdr = (DNS_HDR *)m_strDnsBuf.c_str();
@@ -26,15 +26,21 @@ bool dns_message::StartAnalysis()
 		return false;
 	}
 	//获取dns请求头信息:Question
-	GetDns_Question(m_pDnsHdr);
+
+	if (IsRequest())
+	{
+		GetDns_Question(m_pDnsHdr);
+	}
 
 	//遍历获取所有dns响应头消息:Answer
-	GetDns_Response(m_pDnsHdr);
-
+	if (IsResponce())
+	{
+		GetDns_Response(m_pDnsHdr);
+	}
 	return true;
 }
 
-bool dns_message::GetDNSHeader(const DNS_HDR *dns)
+bool DnsMessage::GetDNSHeader(const DNS_HDR *dns)
 {
 	m_DnsHdr.ID = ntohs(dns->ID);
 	m_DnsHdr.Flags = ntohs(dns->Flags);
@@ -49,7 +55,7 @@ bool dns_message::GetDNSHeader(const DNS_HDR *dns)
 
 
 
-void dns_message::GetDns_Question(const DNS_HDR *dns)
+void DnsMessage::GetDns_Question(const DNS_HDR *dns)
 {
 	char *pDns = (char *)dns;
 	string strDomain;
@@ -65,30 +71,24 @@ void dns_message::GetDns_Question(const DNS_HDR *dns)
 	m_Question.question.qclass = ntohs(pQue->qclass);
 }
 
-void dns_message::GetDns_Response(const DNS_HDR *dns)
+void DnsMessage::GetDns_Response(const DNS_HDR *dns)
 {
 	//若是dns响应，才继续解析下去
-	if (IsRequest())
-	{
-		return;
-	}
-
 	Resource *pResource;
 	SAnswer *pAnswer;
 	char *pDns = (char *)dns;
 	int iSeek;
-
+	//header | question | answer | auth |addtional 
 	//指针移动到Answer首地址
 	pDns += sizeof(DNS_HDR);
 	while (*pDns++);
 	pDns += sizeof(Question);
 
-	//pDns指向Answer首地址
+	//pDns指向Answer首地址,返回的报文中包含多个ip地址
 	//循环解析
 	for (int i = 0; i < m_DnsHdr.AnswerNum; i++)
 	{
 		pAnswer = new SAnswer;
-
 		pAnswer->domain = GetDomain((char *)dns, pDns, &iSeek);
 		pDns += iSeek;
 
@@ -101,7 +101,7 @@ void dns_message::GetDns_Response(const DNS_HDR *dns)
 		pAnswer->resource.len = ntohs(pResource->len);
 
 		//ipv4地址
-		if ( A == pAnswer->resource.type)
+		if (A == pAnswer->resource.type)
 		{
 			pAnswer->result = inet_ntoa(*(struct in_addr *)pDns);//将ip地址转换为字符串型
 			pDns += 4;
@@ -119,7 +119,7 @@ void dns_message::GetDns_Response(const DNS_HDR *dns)
 
 
 //获取请求报文中的域名
-string dns_message::GetDomain(const char *first, const char *start, int *pLen)
+string DnsMessage::GetDomain(const char *first, const char *start, int *pLen)
 {
 	char *p = (char *)start;
 	char *tmp;
@@ -127,28 +127,28 @@ string dns_message::GetDomain(const char *first, const char *start, int *pLen)
 	int iSeek = 0;
 	string strDomain;
 
-		while (1)
+	while (1)
+	{
+		iLen = *p++;
+		for (int i = 0; i < iLen; i++)
 		{
-			iLen = *p++;
-			for (int i = 0; i < iLen; i++)
-			{
-				strDomain += *p++;
-			}
-			if (*p)
-			{
-				strDomain += '.';
-			}
-			//若遇到空字符，则说明域名已经结束，直接返回
-			if (!*p)
-			{
-				p++;
-				if (pLen)
-				{
-					*pLen = p - start;
-				}
-				return strDomain;//返回
-			}
+			strDomain += *p++;
 		}
+		if (*p)
+		{
+			strDomain += '.';
+		}
+		//若遇到空字符，则说明域名已经结束，直接返回
+		if (!*p)
+		{
+			p++;
+			if (pLen)
+			{
+				*pLen = p - start;
+			}
+			return strDomain;//返回
+		}
+	}
 	if (pLen)
 	{
 		*pLen = p - start;
@@ -159,7 +159,7 @@ string dns_message::GetDomain(const char *first, const char *start, int *pLen)
 
 
 
-StringList dns_message::Get_CNAME_List()
+StringList DnsMessage::Get_CNAME_List()
 {
 	StringList strList;
 
@@ -176,7 +176,7 @@ StringList dns_message::Get_CNAME_List()
 	return strList;
 }
 
-StringList dns_message::Get_Ip_List()
+StringList DnsMessage::Get_Ip_List()
 {
 	StringList strList;
 
@@ -194,108 +194,108 @@ StringList dns_message::Get_Ip_List()
 }
 
 
-bool dns_message::IsRequest()
+bool DnsMessage::IsRequest()
 {
 	return (0 == (m_DnsHdr.Flags & DNS_FLAG_QR));
 }
 
-bool dns_message::IsResponce()
+bool DnsMessage::IsResponce()
 {
 	return (1 == (m_DnsHdr.Flags & DNS_FLAG_QR));
 }
 
-USHORT dns_message::GetDnsId()
+USHORT DnsMessage::GetDnsId()
 {
 	return m_DnsHdr.ID;
 }
 
-USHORT dns_message::GetDnsFlag()
+USHORT DnsMessage::GetDnsFlag()
 {
 	return m_DnsHdr.Flags;
 }
 
-USHORT dns_message::GetQuestions()
+USHORT DnsMessage::GetQuestions()
 {
 	return m_DnsHdr.QuestNum;
 }
 
-USHORT dns_message::GetAnswers()
+USHORT DnsMessage::GetAnswers()
 {
 	return m_DnsHdr.AnswerNum;
 }
 
-USHORT dns_message::GetAuthority()
+USHORT DnsMessage::GetAuthority()
 {
 	return m_DnsHdr.AuthorNum;
 }
 
-USHORT dns_message::GetAdditional()
+USHORT DnsMessage::GetAdditional()
 {
 	return m_DnsHdr.AdditionNum;
 }
 
 
 
-USHORT dns_message::GetFlagQR()
+USHORT DnsMessage::GetFlagQR()
 {
 	return m_DnsHdr.Flags & DNS_FLAG_QR;
 }
 
-USHORT dns_message::GetFlagOPCODE()
+USHORT DnsMessage::GetFlagOPCODE()
 {
 	return m_DnsHdr.Flags & DNS_FLAG_OPCODE;
 }
 
-USHORT dns_message::GetFlagAA()
+USHORT DnsMessage::GetFlagAA()
 {
 	return m_DnsHdr.Flags & DNS_FLAG_AA;
 }
 
-USHORT dns_message::GetFlagTC()
+USHORT DnsMessage::GetFlagTC()
 {
 	return m_DnsHdr.Flags & DNS_FLAG_TC;
 }
 
-USHORT dns_message::GetFlagRD()
+USHORT DnsMessage::GetFlagRD()
 {
 	return m_DnsHdr.Flags & DNS_FLAG_RD;
 }
 
-USHORT dns_message::GetFlagRA()
+USHORT DnsMessage::GetFlagRA()
 {
 	return m_DnsHdr.Flags & DNS_FLAG_RA;
 }
 
-USHORT dns_message::GetFlagZ()
+USHORT DnsMessage::GetFlagZ()
 {
 	return m_DnsHdr.Flags & DNS_FLAG_Z;
 }
 
-USHORT dns_message::GetFlagRCODE()
+USHORT DnsMessage::GetFlagRCODE()
 {
 	return m_DnsHdr.Flags & DNS_FLAG_RCODE;
 }
 
 /*
-bool dns_message::IsIpv4()
+bool DnsMessage::IsIpv4()
 {
 	return (A == m_Question.question.type);
 }
 
-bool dns_message::IsIpv6()
+bool DnsMessage::IsIpv6()
 {
 	return (AAAA == m_Question.question.type);
 }
 
 */
 
-string dns_message::QuestionDomain()
+string DnsMessage::QuestionDomain()
 {
 	return m_Question.domain;
 }
 
 
-void dns_message::Clear()
+void DnsMessage::Clear()
 {
 	memset(&m_DnsHdr, 0, sizeof(DNS_HDR));
 	delete m_pDnsHdr;
