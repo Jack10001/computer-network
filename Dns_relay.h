@@ -19,11 +19,13 @@
 #include<iostream>
 #include<algorithm>
 
+
+
 using namespace std;
 #pragma warning(disable : 4996)
 
-#define DEF_DNS_ADDRESS "192.168.43.1"	     //北邮DNS服务器地址
-#define LOCAL_ADDRESS "127.0.0.1"		//本地DNS服务器地址
+#define DEF_DNS_ADDRESS "10.3.9.4"	     //北邮DNS服务器地址
+#define LOCAL_ADDRESS "10.128.229.120"		//本地DNS服务器地址
 #define DNS_PORT 53						//进行DNS服务的53端口
 #define BUF_SIZE 512
 #define LENGTH 65
@@ -76,10 +78,10 @@ RDATA
 */
 typedef struct _tagResource
 {
-	unsigned short	type;
-	unsigned short	qclass;
-	unsigned int	ttl;
-	unsigned short	len;
+	unsigned short	type;//2
+	unsigned short	qclass;//2
+	unsigned int	ttl;//4
+	unsigned short	len;//2
 }Resource;
 
 //相应报文的 Answer(resource recording)
@@ -89,10 +91,6 @@ typedef struct _tagSAnswer
 	Resource	resource;
 	string		result;//ip or 主机名
 }SAnswer;
-
-
-
-
 
 
 //dns缓存记录
@@ -111,12 +109,8 @@ typedef struct IDChange
 } IDTransform;
 
 
-class Dns_relay
-{
-public:
-	Dns_relay();
-	~Dns_relay();
-	int DNS_cache_init(const char* tablepath);
+
+	void DNS_cache_init(const char* tablepath);
 	//void GetUrl(char *recvbuf, int recvnum);
 	//int IsFind(char* url, int num);
 	int IsFind(int num);
@@ -127,6 +121,6 @@ public:
 	void init_CMD(int argc, char**argv);
 	void update_DNS_cache_db(char *recvbuf, int recv_num);
 	void update_dns_cache(vector<DNS_record>& records);
-	void to_BUPT_DNSServer(char * recvbuf, int iRecv, int find);
-	void relay_server(char*recvbuf, int iRecv, int find);
-};
+	
+     void to_BUPT_DNSServer(char * recvbuf, int iRecv, int find);
+   void relay_server(char*recvbuf, int iRecv, int find);

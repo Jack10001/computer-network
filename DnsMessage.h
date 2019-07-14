@@ -20,7 +20,7 @@ typedef vector<string> StringList;
 typedef vector<SAnswer*> AnswerList;
 typedef unsigned short u_short;
 
-enum { CNAME, A };
+enum { CNAME=28, A=1 };
 
 class DnsMessage
 {
@@ -53,11 +53,15 @@ public:
 	StringList Get_CNAME_List();//CNAME数组
 	StringList Get_Ip_List();//IP数组
 
+	bool IsCompressedName(const char *ptr, int *seek);
+	bool IsIpv4();
+	
+
 	//log
 	//void	PrintLog();
 
 private:
-	bool    GetDNSHeader(const DNS_HDR *dns);//获取dns头信息
+    void    GetDNSHeader(const DNS_HDR *dns);//获取dns头信息
 	void	GetDns_Question(const DNS_HDR *dns);//获取dns请求信息:Question
 	void	GetDns_Response(const DNS_HDR *dns);//遍历获取所有dns响应:Answer
 	string	GetDomain(const char *first, const char *start, int *pLen = NULL);//获取域名,first为dns首地址，first为域名读取的首地址

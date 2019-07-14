@@ -81,26 +81,31 @@ vector<DNS_record_> DnsDb::select_(const char * domain)
 
 	//DNS_record dns_records[MAX_RECORD_NUM];
 	vector<DNS_record_> dns_records;
+	DNS_record_ dns_record;
 	//std::vector<DNS_record> dns_records;
 	retcode = SQLBindCol(hstmt, 1, SQL_C_CHAR, ipAddr, IPLENGTH, &s_len);
 	retcode = SQLBindCol(hstmt, 2, SQL_C_CHAR, dominName, DOMIN_LENGTH, &c_len);
-	printf("---------------------------------------------------\n");
-	printf(" count     ip_addr      domain_name\n");
-	printf("---------------------------------------------------\n");
 	int i = 0;
 	while (SQLFetch(hstmt) != SQL_NO_DATA)
 	{
 
-		printf(" %d |     %s     |    %s\n", i, ipAddr, dominName);
-		memcpy(ip, (char*)ipAddr, sizeof((char*)ipAddr));
-		memcpy(domin_, (char*)dominName, sizeof((char*)dominName));
-		dns_records[i].IP = ip;
-		dns_records[i].domain = domin_;
+		//printf(" %d |     %s     |    %s\n", i, ipAddr, dominName);
+		//memcpy(ip, (char*)ipAddr, sizeof((char*)ipAddr));
+		//memcpy(domin_, (char*)dominName, sizeof((char*)dominName));
+		strcpy(ip, (char*)ipAddr);
+		strcpy(domin_, (char*)dominName);
+		dns_record.domain = domin_;
+		dns_record.IP = ip;
+		dns_records.push_back(dns_record);
 		i++;
+	}
+	for (auto it = dns_records.begin(); it != dns_records.end(); it++)
+	{
+		cout << (*it).IP.c_str() << " " << (*it).domain.c_str() << endl;
 	}
 
 	SQLCloseCursor(hstmt);
-	cout << "dns records result :"<<dns_records.size()<<endl;
+	cout << "dns records from database result :"<<dns_records.size()<<endl;
 	return dns_records;
 }
 

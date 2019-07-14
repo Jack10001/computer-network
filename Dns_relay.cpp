@@ -13,19 +13,15 @@ char tablePath[100];
 char outerDNS[16];
 
 vector<DNS_record> DNS_cache;
-IDTransform IDTransTable[AMOUNT];	//ID转换表
-
+vector<IDTransform> IDTransTable;
 
 string url;
-SYSTEMTIME sys;                     //系统时间
-int Day, Hour, Minute, Second, Milliseconds;//保存系统时间的变量,按时间坐标输出
+mutex Mutex;
 
 
-Dns_relay::Dns_relay() {}
-Dns_relay::~Dns_relay() {}
 
 //dns缓存初始化
-int Dns_relay::DNS_cache_init(const char *tablePath)
+void DNS_cache_init(const char *tablePath)
 {
 	cout << "Try to load table 'dnsrelay.txt'";
 	int i = 0;
@@ -40,13 +36,7 @@ int Dns_relay::DNS_cache_init(const char *tablePath)
 		exit(1);
 
 	}
-	/*catch (const exception& e)
-	{
-		cerr << e.what() << endl;
-		cerr << "Open " << tablePath << " error!" << endl;
-		system("pause");
-		exit(1);
-	}*/
+
 	while (getline(infile, table[i]) && i < AMOUNT)
 		i++;
 
@@ -66,49 +56,19 @@ int Dns_relay::DNS_cache_init(const char *tablePath)
 	}
 	infile.close();		//关闭文件
 	cout << "  ...OK" << endl;
-	return i - 1;			//返回域名解析表中条目个数
+	
 }
 
-//函数：获取DNS请求中的域名
-/*
-void GetUrl(char *recvbuf, int recvnum)
-{
-	char urlname[LENGTH];
-	int i = 0, j, k = 0;
-
-	memset(url, 0, LENGTH);
-	memcpy(urlname, &(recvbuf[sizeof(DNS_HDR)]), recvnum - 16);	//获取请求报文中的域名表示
-
-	int len = strlen(urlname);
-
-	//域名转换
-	while (i < len) {
-		if (urlname[i] > 0 && urlname[i] <= 63)
-			for (j = urlname[i], i++; j > 0; j--, i++, k++)
-				url[k] = urlname[i];
-
-		if (urlname[i] != 0) {
-			url[k] = '.';
-			k++;
-		}
-	}
-	url[k] = '\0';
-	cout << "URL:" << url << endl;
-}
-*/
 
 //函数：判断是否在表中找到DNS请求中的域名，找到返回下标
-int Dns_relay::IsFind(int num)
+int IsFind(int num)
 {
 	int find = NOTFOUND;
-	//string domain;
 	string temp_url = url;
-	//const char* temp_u = temp_url.c_str();
-	//char * domain;
 	string domain;
-	for (int i = 0; i < num; i++) {
-		//domain = (char *)DNS_cache[i].domain.c_str();
-		if (temp_url.compare(domain) == 0) {	//找到
+	for (int i = 0; i < num; i++) 
+	{
+		if (temp_url.compare(DNS_cache[i].domain) == 0) {	//找到第一个的下标
 			find = i;
 			break;
 		}
@@ -118,18 +78,23 @@ int Dns_relay::IsFind(int num)
 }
 
 //函数：将请求ID转换为新的ID，并将信息写入ID转换表中
-unsigned short Dns_relay::RegisterNewID(unsigned short oID, SOCKADDR_IN temp, BOOL ifdone)
+unsigned short RegisterNewID(unsigned short oID, SOCKADDR_IN temp, BOOL ifdone)
 {
 	//srand(time(NULL));
-	IDTransTable[IDcount].oldID = oID;
-	IDTransTable[IDcount].client = temp;
-	IDTransTable[IDcount].done = ifdone;
+	//Mutex.lock();
+	IDTransform transform;
+	transform.oldID = oID;
+	transform.client = temp;
+	transform.done = ifdone;
+	IDTransTable.push_back(transform);
 	IDcount++;
-
+	cout << "IDcount : " << IDcount - 1 << endl;
+	//Mutex.unlock();
 	return (unsigned short)(IDcount - 1);	//以表中下标作为新的ID
 }
 
-void Dns_relay::showtime() {
+void showtime() 
+{
 	char tmp[64];
 	time_t t = time(NULL);
 	tm *_tm = localtime(&t);
@@ -144,7 +109,7 @@ void Dns_relay::showtime() {
 	cout << tmp << '\t';
 }
 
-void Dns_relay::init_CMD(int argc, char ** argv)
+void init_CMD(int argc, char ** argv)
 {
 	if (argc == 1)
 	{
@@ -175,7 +140,7 @@ void Dns_relay::init_CMD(int argc, char ** argv)
 
 }
 
-void Dns_relay::init_socket()
+void init_socket()
 {
 	
 	//初始化套接字
@@ -213,19 +178,9 @@ void Dns_relay::init_socket()
 
 }
 
-void Dns_relay::DisplayInfo(unsigned short newID, int find)
+void DisplayInfo(unsigned short newID, int find)
 {
 	//打印时间
-	//GetLocalTime(&sys);
-	/*if (sys.wMilliseconds >= Milliseconds)
-	{
-		cout << setiosflags(ios::right) << setw(7) << setfill(' ') << (((sys.wDay - Day) * 24 + sys.wHour - Hour) * 60 + sys.wMinute - Minute) * 60 + sys.wSecond - Second;//设置宽度为7，right对齐方式
-		cout << '.' << setiosflags(ios::right) << setw(3) << setfill('0') << sys.wMilliseconds - Milliseconds;
-	}
-	else {
-		cout << setiosflags(ios::right) << setw(7) << setfill(' ') << (((sys.wDay - Day) * 24 + sys.wHour - Hour) * 60 + sys.wMinute - Minute) * 60 + sys.wSecond - Second - 1;//设置宽度为7，right对齐方式
-		cout << '.' << setiosflags(ios::right) << setw(3) << setfill('0') << 1000 + sys.wMilliseconds - Milliseconds;
-	}*/
 	showtime();
 	cout << "  ";
 
@@ -261,7 +216,7 @@ void Dns_relay::DisplayInfo(unsigned short newID, int find)
 			cout << "    ";
 			//打印域名(加*)
 			cout.setf(ios::left);
-			cout << "*" << setiosflags(ios::left) << setw(19) << setfill(' ') << url;
+			cout <<setiosflags(ios::left) << setw(19) << setfill(' ') << url;
 			cout << "    ";
 			//打印IP
 			cout.setf(ios::left);
@@ -276,7 +231,7 @@ void Dns_relay::DisplayInfo(unsigned short newID, int find)
 			cout << "    ";
 			//打印域名
 			cout.setf(ios::left);
-			cout << "*" << setiosflags(ios::left) << setw(19) << setfill(' ') << url;
+			cout << setiosflags(ios::left) << setw(19) << setfill(' ') << url;
 			cout << "    ";
 			//打印IP
 			cout.setf(ios::left);
@@ -285,11 +240,15 @@ void Dns_relay::DisplayInfo(unsigned short newID, int find)
 	}
 }
 
-void Dns_relay::update_DNS_cache_db(char *recvbuf, int recv_num)
+void update_DNS_cache_db(char *recvbuf, int recv_num)
 {
+	//解析出返回的DNS报文中的多个ip
 	DnsMessage dns_msg(recvbuf,recv_num);
-	//得到domain
-	//返回iplist
+	if (!dns_msg.StartAnalysis())
+	{
+		cout << "analysi error" << endl;
+		return;
+	}
 	string domain = dns_msg.QuestionDomain();
 	vector<string> ip_list = dns_msg.Get_Ip_List();
 	DNS_record record;
@@ -301,132 +260,151 @@ void Dns_relay::update_DNS_cache_db(char *recvbuf, int recv_num)
 		record.IP = (*it);
 		dns_records.push_back(record);	
 	}
+	
 	//删除最前面的，插入到后面(DNS_cache中有的话就不会更新DNS_cache和数据库)
 	DNS_cache.insert(DNS_cache.end(), dns_records.begin(), dns_records.end());
 	string ip = DNS_cache[0].IP;
 	vector<DNS_record>::iterator temp;
 	for (auto it = DNS_cache.begin(); it != DNS_cache.end(); it++)
 	{
-		if (ip == (*it).IP)
+		if (ip.compare((*it).IP) != 0)
 		{
 			temp = it;
-			DNS_cache.erase(temp);
+			break;
 		}
 	}
+	DNS_cache.erase(DNS_cache.begin(), temp);
 	//更新数据库
 	const char* pdomain = domain.c_str();
 	for (auto it = ip_list.begin(); it != ip_list.end(); it++)
 	{
 		const char * ip = (*it).c_str();
+       //cout << "ip" << *ip << ",domain" << *pdomain << endl;
 		dns_db.update_record(ip,pdomain);
 
 	}
 }
 
 
-void Dns_relay::update_dns_cache(vector<DNS_record>& records)
+void update_dns_cache(vector<DNS_record>& records)
 {
-	//删除最前面的，插入到后面(DNS_cache中有的话就不会更新DNS_cache和数据库)
 	DNS_cache.insert(DNS_cache.end(), records.begin(), records.end());
+	//删除最前面的，插入到后面(DNS_cache中有的话就不会更新DNS_cache和数据库)
 	string ip = DNS_cache[0].IP;
 	vector<DNS_record>::iterator temp;
 	for (auto it = DNS_cache.begin(); it != DNS_cache.end(); it++)
 	{
-		if (ip == (*it).IP)
+		if (ip.compare((*it).IP)!=0)
 		{
 			temp = it;
-			DNS_cache.erase(temp);
+			break;
 		}
 	}
+	DNS_cache.erase(DNS_cache.begin(),temp);
 
 }
 
 
 //中继功能
-void Dns_relay::to_BUPT_DNSServer(char * recvbuf,int iRecv,int find)
+void to_BUPT_DNSServer(char * recvbuf_temp, int iRecv, int find)
 {
 	int iLen_cli = sizeof(localName);
-	int iSend = 0,recv_num;
+	int iSend = 0, recv_num;
 	char recvBUF[BUF_SIZE];
+
+	memcpy(recvBUF, recvbuf_temp, iRecv);
+
 	//ID转换 长度2字节
 	unsigned short *pID = (unsigned short *)malloc(sizeof(unsigned short));
-	//解析的是系统分配的id
-	memcpy(pID, recvbuf, sizeof(unsigned short));
+	//解析的是系统分配的ID
+	memcpy(pID, recvBUF, sizeof(unsigned short));
 	unsigned short nID = htons(RegisterNewID(ntohs(*pID), clientName, FALSE));
 	//新的ID是下标，加快查找速度
-	memcpy(recvbuf, &nID, sizeof(unsigned short));
+	memcpy(recvBUF, &nID, sizeof(unsigned short));
 
-	cout << "nID find:" << nID << " " << find << endl;
+	free(pID);	//释放动态分配的内存
+
+	//Mutex.lock();
+	cout << "nID :" << ntohs(nID) << endl;
 	//打印 时间 newID 功能 域名 IP
-	DisplayInfo(ntohs(nID), find);
+	//DisplayInfo(ntohs(nID), find);
+	//Mutex.unlock();
+
+
+	//做ID转换之后，将原先的内容原封不动的转发出去
 	//把recvbuf转发至指定的外部DNS服务器
-	iSend = sendto(socketServer, recvbuf, iRecv, 0, (SOCKADDR*)&serverName, sizeof(serverName));
+	iSend = sendto(socketServer, recvBUF, iRecv, 0, (SOCKADDR*)&serverName, sizeof(serverName));
 	if (iSend == SOCKET_ERROR) {
 		cout << "sendto Failed: " << WSAGetLastError() << endl;
 	}
 	else if (iSend == 0)
 		return;
 
-	free(pID);	//释放动态分配的内存
-
-	//阻塞接受
 	//接收来自外部DNS服务器的响应报文
-	//recv_num = recvfrom(socketServer, recvbuf, sizeof(recvbuf), 0, (SOCKADDR*)&clientName, &iLen_cli);
-	recv_num = recvfrom(socketServer, recvBUF, sizeof(recvBUF), 0, (SOCKADDR*)&localName, &iLen_cli);
+	recv_num = recvfrom(socketServer, recvBUF, BUF_SIZE, 0, (SOCKADDR*)&localName, &iLen_cli);
+
+	//更新DNS缓存和数据库中
+	//Mutex.lock();
+	cout << "recv_num : "<<recv_num << endl;
+		
 	
-	//更新DNS缓存和数据库中的内容???
-	update_DNS_cache_db(recvBUF,recv_num);
+	   //更新数据库和DNS缓存
+    	update_DNS_cache_db(recvBUF,recv_num);
+
+		unsigned short *ppID = (unsigned short *)malloc(sizeof(unsigned short));
+
+		//进行 ID 转换
+		ppID = (unsigned short *)malloc(sizeof(unsigned short));
+		memcpy(ppID, recvBUF, sizeof(unsigned short));
+		int m = ntohs(*ppID);
+		unsigned short oID = htons(IDTransTable[m].oldID);
+		memcpy(recvBUF, &oID, sizeof(unsigned short));
+
+		//Mutex.lock();
+		cout << "ppID :" << m << endl << endl;
+		IDTransTable[m].done = TRUE;
+		clientName = IDTransTable[m].client;
+		//Mutex.unlock();
+		//????
+		//ID解析表处理完之后，必须一个线程隔一段时间清除ID解析表中做完的ID转换
+		//????
 
 
-	//进行 ID 转换
-	pID = (unsigned short *)malloc(sizeof(unsigned short));
-	memcpy(pID, recvBUF, sizeof(unsigned short));
-	int m = ntohs(*pID);
-	unsigned short oID = htons(IDTransTable[m].oldID);
-	memcpy(recvBUF, &oID, sizeof(unsigned short));
-	IDTransTable[m].done = TRUE;
 
-
-	//从ID转换表中获取发出DNS请求者的信息
-	clientName = IDTransTable[m].client;
-
-	//????
-	//ID解析表处理完之后，必须一个线程隔一段时间清除ID解析表中做完的ID转换
-	//????
-
-
-
-	//中继服务器收到北邮DNS服务器发来的 相应报文 ，直接 发给 请求方
-	//把recvbuf转发至请求者处
-	iSend = sendto(socketLocal, recvbuf, iRecv, 0, (SOCKADDR*)&clientName, sizeof(clientName));
-	if (iSend == SOCKET_ERROR) {
-		cout << "sendto Failed: " << WSAGetLastError() << endl;
-	}
-	else if (iSend == 0)
-		return;
-	free(pID);	//释放动态分配的内存
+		//中继服务器收到北邮DNS服务器发来的 相应报文 ，直接 发给 请求方
+		iSend = sendto(socketLocal, recvBUF, iRecv, 0, (SOCKADDR*)&clientName, sizeof(clientName));
+		if (iSend == SOCKET_ERROR) {
+			cout << "sendto Failed: " << WSAGetLastError() << endl;
+		}
+		else if (iSend == 0)
+			return;
+		free(ppID);	//释放动态分配的内存
+	
 }
 
-
 //服务器功能
-void Dns_relay::relay_server(char * recvbuf,int iRecv,int find)
+void relay_server(char * recvbuf,int iRecv,int find)
 {
 	char sendbuf[BUF_SIZE];
 	int iSend = 0;
+
 	//获取请求报文的ID
-	unsigned short *pID = (unsigned short *)malloc(sizeof(unsigned short));
-	memcpy(pID, recvbuf, sizeof(unsigned short));
+	//unsigned short *pID = (unsigned short *)malloc(sizeof(unsigned short));
+	//memcpy(pID, recvbuf, sizeof(unsigned short));
 	//转换ID
-	unsigned short nID = RegisterNewID(ntohs(*pID), clientName, FALSE);
+	//unsigned short nID = RegisterNewID(ntohs(*pID), clientName, FALSE);
 
 
 
-	//打印 时间 newID 功能 域名 IP
-	DisplayInfo(nID, find);
-
+	//打印:时间 newID 功能 域名 IP
+	Mutex.lock();
+	//DisplayInfo(*pID, find);
+	Mutex.unlock();
 	//构造响应报文 12bytes 头部
 	//FLAGS 1000 0001 1000 0000
+	
 	memcpy(sendbuf, recvbuf, iRecv);//请求报文和响应报文有相同的格式
+
 	unsigned short a = htons(0x8180);
 	memcpy(&sendbuf[2], &a, sizeof(unsigned short));		//FLAGS
 
@@ -501,7 +479,7 @@ void Dns_relay::relay_server(char * recvbuf,int iRecv,int find)
 	else if (iSend == 0)
 		return;
 
-	free(pID);		//释放动态分配的内存
+	
 }
 
 
@@ -509,33 +487,17 @@ int main(int argc, char** argv)
 {
 	//初始化数据库
 	dns_db.init_db();
-	Dns_relay dns_relay;
-	char recvbuf[BUF_SIZE];
-	int Len_cli, iRecv=0;
-	int num=0;
-	//初始化命令行
-	dns_relay.init_CMD(argc,argv);
-	//初始化套接字
-	dns_relay.init_socket();
-	num = dns_relay.DNS_cache_init(tablePath);
-	cout << num << " names,occpy " << sizeof(DNS_record) * DNS_cache.size() << " bytes memory!" << endl;
-	//初始化ID转换表
-	for (int i = 0; i < AMOUNT; i++) {			        	
-		IDTransTable[i].oldID = 0;
-		IDTransTable[i].done = FALSE;
-		memset(&(IDTransTable[i].client), 0, sizeof(SOCKADDR_IN));
-	}
-
-	//保存系统的时间
-	GetLocalTime(&sys);
-	Day = sys.wDay;
-	Hour = sys.wHour;
-	Minute = sys.wMinute;
-	Second = sys.wSecond;
-	Milliseconds = sys.wMilliseconds;
 	
+	char recvbuf[BUF_SIZE];
+	int Len_cli, iRecv = 0;
+	//初始化命令行
+	init_CMD(argc,argv);
+	//初始化套接字
+	init_socket();
+	DNS_cache_init(tablePath);
+	cout << DNS_cache.size() << " names,occpy " << sizeof(DNS_record) * DNS_cache.size() << " bytes memory!\n\n\n" ;
 
-	//保存从数据库中查询到的错误
+	//保存从数据库中查询到的记录
 	vector<DNS_record> dns_records;
 	DNS_record a_record;
 
@@ -561,6 +523,7 @@ int main(int argc, char** argv)
 		else
 		{
 			//获取报文的所有信息
+			//Mutex.lock();
 			DnsMessage dns_msg(recvbuf, iRecv);
 			if (!dns_msg.StartAnalysis())
 			{
@@ -570,24 +533,29 @@ int main(int argc, char** argv)
 			}
 			//url=(char*)dns_msg.QuestionDomain().c_str();
 			url = dns_msg.QuestionDomain();
-			cout << "url:" << url << endl;
-			//GetUrl(recvbuf, iRecv);				//获取域名
+			//Mutex.lock();
+			cout << "question url:" << url << endl;
+			//Mutex.unlock();
+			//在dns缓存表中查找
+			int find = IsFind(DNS_cache.size());
 
-			//set<map<string,string>> DNS_cache 缓存表换成set
-			//DNS报文解析完毕之后得到domin，dns服务器进行查找
-
-
-			int find = dns_relay.IsFind(num);		//在dns缓存表中查找
-			cout << "find : " << find << endl;
+			//Mutex.lock();
+			cout << "find in DNS_cache : " << find << endl;
+		//	Mutex.unlock();
 			//首先在 域名解析表中进行查找，如果没找到，则进行向数据库请求
 			//如果数据库中存在，而dns缓存中不存在，更新dns缓存，替换最前面的
 			//将结果返回给用户，考虑多个ip地址的情况，在构造dns报文，
 			//在DNS缓存中没有找到ip地址
+			//Mutex.unlock();
 			if (find == NOTFOUND)
 			{
 				const char * url_ = url.c_str();
-				 vector<DNS_record_> dns_records_ = dns_db.select_(url_);
-				//在数据库中
+
+				//在数据库中进行查找
+			//	Mutex.lock();
+				vector<DNS_record_> dns_records_ = dns_db.select_(url_);
+				
+
 				if (dns_records_.size() != 0)
 				{
 					for (auto it = dns_records_.begin(); it != dns_records_.end(); it++)
@@ -597,10 +565,23 @@ int main(int argc, char** argv)
 						dns_records.push_back(a_record);
 					}
 					//1.数据库中查询到的内容必须放入到DNS缓存中
-					dns_relay.update_dns_cache(dns_records);
+					//Mutex.lock();
+					//update_dns_cache(dns_records);
+					//Mutex.unlock();
+
 					//2.构造DNS报文返回给请求用户
-					find = dns_relay.IsFind(num);
-					dns_relay.relay_server(recvbuf,iRecv,find);
+
+					find = IsFind(DNS_cache.size());
+					//Mutex.lock();
+					cout << "find in database :" << find << endl;
+					//Mutex.unlock();
+
+				//	Mutex.unlock();
+					//dns_relay.relay_server(recvbuf,iRecv,find);
+					char recvbuf_temp[BUF_SIZE];
+					memcpy(recvbuf_temp, recvbuf, BUF_SIZE);
+					//thread t(relay_server, recvbuf_temp, iRecv, find);
+					//t.detach();
 				}
 				//在数据库中没有找到，则进行中继
 				//中继功能,返回的报文中所包含的ip地址必须存入DNS缓存和数据库中
@@ -611,17 +592,21 @@ int main(int argc, char** argv)
 					//3.解析处返回中包含的ip+domin
 					//4.将解析出的ip+domin 存入到数据库中
 					//5.构造DNS报文返回给用户
-					dns_relay.to_BUPT_DNSServer(recvbuf,iRecv,find);
+					char recvbuf_temp[BUF_SIZE];
+					memcpy(recvbuf_temp, recvbuf, BUF_SIZE);
+					//thread t1(to_BUPT_DNSServer, recvbuf_temp, iRecv, find);
+					//t1.detach();
+					to_BUPT_DNSServer(recvbuf_temp, iRecv, find);
 				}
 			}
 			//在dns缓存中找到
 			else
 			{
-				dns_relay.relay_server(recvbuf, iRecv, find);
+				char recvbuf_temp[BUF_SIZE];
+				memcpy(recvbuf_temp, recvbuf, BUF_SIZE);
+				//thread t2(relay_server, recvbuf_temp, iRecv, find);
+				//t2.detach();
 			}
-		//	？？？？
-			//中继功能通过创建一个线程完成，负责发和收，收完之后谁负责通知？？？？？，更新数据库，更新DNS缓存（必须有互斥锁）， 发送给客户端
-		// ????			
 		}
 
 	}
